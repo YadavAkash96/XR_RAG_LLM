@@ -7,7 +7,7 @@ PyMuPDF>=1.24.0
 beautifulsoup4>=4.12.3
 sentence-transformers>=3.0.1
 transformers>=4.42.0
-torch==2.2.0+cu121
+torch==2.8.0+cu126
 torchvision
 openai>=1.40.0
 requests>=2.31.0
