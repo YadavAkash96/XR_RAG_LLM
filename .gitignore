@@ -1,1 +1,4 @@
-.\src\.env
+# Environment variables
+.env
+.env.local
+.env.*
