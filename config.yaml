@@ -13,23 +13,6 @@ faiss:
   m_pq: 64
 
 
-
-# index:
-#   strategy: "caption_to_text" # or "shared_encoder"
-#   db_dir: data
-#   text_model: "BAAI/bge-m3"
-#   image_model: "openai/clip-vit-base-patch32"
-#   shared_encoder_model: "sentence-transformers/clip-ViT-B-32"  # or "sentence-transformers/siglip-base-patch16-384"
-#   # Only used when strategy=caption_to_text:
-#   caption_model: "nlpconnect/vit-gpt2-image-captioning"  # light & T4-friendly
-#   # Or better (but heavier): "Salesforce/blip-image-captioning-base"
-#   use_ocr: true
-#   min_chunk_tokens: 10
-#   max_chunk_tokens: 500
-#   languages: ["en"]
-#   store_images: true
-
-
 faiss:
   use_ivf_pq: true
   nlist: 2048     # tune to corpus size
@@ -63,6 +46,3 @@ tts:
 device:
   use_cuda: True               # Auto-detect GPU
   device_name: "cuda"
-
-
-
