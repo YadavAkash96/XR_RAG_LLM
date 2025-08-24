@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Live STT (Vosk + FastAPI)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; }
+    button { padding: 10px 16px; font-size: 16px; }
+    #status { margin-top: 12px; }
+    #log { margin-top: 16px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  </style>
+</head>
+<body>
+  <h1>Microphone → Backend → Transcript</h1>
+  <button id="startBtn">Start</button>
+  <button id="stopBtn" disabled>Stop</button>
+  <div id="status">Idle</div>
+  <div id="log"></div>
+
+  <script>
+    let ws;
+    let audioContext;
+    let processor;
+    let source;
+    let stream;
+
+    const statusEl = document.getElementById("status");
+    const logEl = document.getElementById("log");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn  = document.getElementById("stopBtn");
+
+    function log(line) {
+      logEl.textContent = (line ? (line + "\n") : "") + logEl.textContent;
+    }
+
+    // Downsample Float32 PCM to 16k mono Int16LE
+    function downsampleTo16k(float32Array, fromRate) {
+      const toRate = 16000;
+      if (fromRate === toRate) {
+        // convert float32 -> int16
+        const out = new Int16Array(float32Array.length);
+        for (let i = 0; i < float32Array.length; i++) {
+          let s = Math.max(-1, Math.min(1, float32Array[i]));
+          out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        return out;
+      }
+      const ratio = fromRate / toRate;
+      const newLength = Math.round(float32Array.length / ratio);
+      const out = new Int16Array(newLength);
+      let o = 0;
+      let i = 0;
+      while (o < newLength) {
+        const idx = Math.floor(i);
+        let s = float32Array[idx];
+        s = Math.max(-1, Math.min(1, s));
+        out[o] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        i += ratio;
+        o++;
+      }
+      return out;
+    }
+
+    startBtn.onclick = async () => {
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      statusEl.textContent = "Requesting microphone...";
+
+      // connect WS
+      ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + "localhost:8000" + "/ws/transcribe");
+      // ws = new WebSocket('ws://localhost:8000/listen');
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = () => { statusEl.textContent = "Connected. Speak."; };
+      ws.onclose = () => { statusEl.textContent = "Disconnected."; };
+      ws.onerror = (e) => { statusEl.textContent = "WebSocket error."; console.error(e); };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.partial) {
+            // partial text (optional: ignore if you do not want to show)
+            log("partial: " + msg.partial);
+          } else if (msg.final) {
+            // final text (use this in your app)
+            log("final: " + msg.final);
+          }
+        } catch {
+          // ignore non-JSON messages
+        }
+      };
+
+      // mic
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 }, video: false });
+      // Some browsers ignore requested sampleRate; capture actual rate then downsample.
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const inputSampleRate = audioContext.sampleRate;
+
+      source = audioContext.createMediaStreamSource(stream);
+      // ScriptProcessor is deprecated but widely supported; simplest for a minimal demo.
+      processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+      processor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0); // Float32
+        const pcm16 = downsampleTo16k(input, inputSampleRate);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(pcm16.buffer); // Int16LE bytes
+        }
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination); // required on some browsers
+    };
+
+    stopBtn.onclick = async () => {
+      stopBtn.disabled = true;
+      if (processor) { processor.disconnect(); processor.onaudioprocess = null; }
+      if (source) { source.disconnect(); }
+      if (audioContext) { await audioContext.close(); }
+      if (stream) { stream.getTracks().forEach(t => t.stop()); }
+      if (ws && ws.readyState === WebSocket.OPEN) { ws.send("close"); ws.close(); }
+      startBtn.disabled = false;
+      statusEl.textContent = "Stopped.";
+    };
+  </script>
+</body>
+</html>

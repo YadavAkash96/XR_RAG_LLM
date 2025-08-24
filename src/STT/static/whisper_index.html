@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Whisper STT Demo</title>
+</head>
+<body>
+<h2>Whisper STT - Record Then Transcribe</h2>
+<button id="startBtn">Start Recording</button>
+<button id="stopBtn">Stop Recording</button>
+<p>Transcript:</p>
+<div id="transcript"></div>
+    <script>
+        let ws;
+        let mediaRecorder;
+        let chunks = [];
+
+        document.getElementById("startBtn").onclick = async function() {
+        ws = new WebSocket("ws://localhost:8000/ws/transcribe");
+        ws.onmessage = (event) => {
+            document.getElementById("transcript").innerText = event.data;
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+            chunks.push(event.data);
+            }
+        };
+
+        mediaRecorder.start();
+        };
+
+        document.getElementById("stopBtn").onclick = function() {
+        mediaRecorder.onstop = async () => {
+            const blob = new Blob(chunks, { type: "audio/webm" });
+            const arrayBuffer = await blob.arrayBuffer();
+            ws.send(arrayBuffer); // send full audio at once
+            chunks = [];
+        };
+        mediaRecorder.stop();
+        };
+    </script>
+</body>
+</html>
