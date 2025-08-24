@@ -1,9 +1,9 @@
 
-**Objective:** 
+### **Objective:** 
 
 Capture **real-time voice queries** from the user and convert them into text before passing them to the retrieval pipeline.
 
-**Two practical options:**
+#### **Two practical options:**
 
 1. **Use OpenAI Realtime API** ( whisper recommended for quality). [[STT theory]]
 2. **Use local libraries like Vosk** (works offline). [[STT theory]]
