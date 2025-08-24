@@ -25,8 +25,8 @@ uvicorn whisper_server:app --reload
 ```
 
 Result:
-![[whisper_server_ss.png]]
 
+![Whisper Server Screenshot](./Images/whisper_server_ss.png)
 
 #### To run vosk:
 
@@ -43,5 +43,5 @@ uvicorn vosk_server:app --reload
 ```
 3. Results are not impressive using vosk:
 
-![[vosk_server_ss.png]]
+![Vosk Server Screenshot](./Images/vosk_server_ss.png)
 
