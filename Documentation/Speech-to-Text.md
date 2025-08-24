@@ -20,9 +20,9 @@ Capture **real-time voice queries** from the user and convert them into text bef
 	 ```
 
 2. Run server file and open static whisper_index.html page
-```bash
-uvicorn whisper_server:app --reload
-```
+	```bash
+	uvicorn whisper_server:app --reload
+	```
 
 Result:
 
@@ -35,12 +35,12 @@ Load ASR model (download once from: https://alphacephei.com/vosk/models)
 1. Install dependencies:
    ```bash
    pip install vosk 
-   ```
+	```
 
 2. Run server file and open static vosk_index.html page
-```bash
-uvicorn vosk_server:app --reload
-```
+	```bash
+	uvicorn vosk_server:app --reload
+	```
 3. Results are not impressive using vosk:
 
 ![Vosk Server Screenshot](./Images/vosk_server_ss.png)
