@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AR Assistant</title>
+    <style>
+        /* Make the camera feed fill the screen */
+        body, html { margin: 0; padding: 0; background-color: black; }
+        #camera-container { position: relative; width: 100vw; height: 100vh; }
+        
+        /* Video and Canvas must overlap perfectly */
+        #camera-feed, #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        /* Simple crosshair in the middle of the screen */
+        #crosshair { position: fixed; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid white; transform: translate(-50%, -50%); border-radius: 50%; }
+        /* Record button */
+        #record-button { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-radius: 50%; background-color: red; border: 3px solid white; }
+        /* Where the result video will appear */
+        #result-video { position: fixed; top: 20px; right: 20px; width: 30vw; border: 2px solid white; display: none; }
+    </style>
+</head>
+<body>
+    <div id="camera-container">
+        <video id="camera-feed" autoplay playsinline></video>
+        <canvas id="overlay-canvas"></canvas> <!-- <-- ADD THIS CANVAS -->
+    </div>
+    <div id="crosshair"></div>
+    <button id="record-button"></button>
+    <video id="result-video" controls></video>
+
+    <!-- Load TensorFlow.js and the object detection model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script src="main.js"></script> <!-- My JavaScript code -->
+</body>
+</html>
