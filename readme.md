@@ -110,7 +110,7 @@ XR_RAG_LLM/
 
 **1. Clone the Repository**
 ```bash
-git clone 
+git clone https://github.com/YadavAkash96/XR_RAG_LLM.git
 cd XR_RAG_LLM
 ```
 
