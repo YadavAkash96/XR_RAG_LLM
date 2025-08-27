@@ -46,7 +46,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 user_query_text = stt_response.json()['transcription']
                 print(f"STT Service returned: '{user_query_text}'")
                 
-
                  # --- TEMPORARY CHANGE FOR TESTING ---
                 # We will send the transcribed text back directly as the final result.
                 # The LLM call is temporarily disabled.

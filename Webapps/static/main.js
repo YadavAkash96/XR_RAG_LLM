@@ -3,18 +3,25 @@
 const video = document.getElementById('camera-feed');
 const recordButton = document.getElementById('record-button');
 const resultVideo = document.getElementById('result-video');
+const canvas = document.getElementById('overlay-canvas');
+const ctx = canvas.getContext('2d');
 
 let model = undefined;
 let currentTargetObject = null; // This will hold the name of the object we're aiming at
 let mediaRecorder;
 let audioChunks = [];
 let host = window.location.host;
-
 if (host === "") {
-    // This handles the case where you open the HTML file directly
     host = "localhost:5000"; 
 }
-const WEBSOCKET_URL = `ws://${host}/ws/query`;
+
+// Check if the current page is loaded over HTTPS
+const isSecure = window.location.protocol === 'https:';
+
+// Use 'wss://' for secure connections, 'ws://' for insecure ones
+const protocol = isSecure ? 'wss' : 'ws';
+
+const WEBSOCKET_URL = `${protocol}://${host}/ws/query`;
 console.log("Attempting to connect WebSocket to:", WEBSOCKET_URL);
 
 let socket = new WebSocket(WEBSOCKET_URL);
@@ -65,39 +72,84 @@ async function loadModel() {
     model = await cocoSsd.load();
     console.log("Model loaded!");
     // Start detecting objects continuously
-    setInterval(detectObjects, 500); // Run detection every 500ms
+    setInterval(detectionLoop, 500); // Run detection every 500ms
 }
 
 // Real-Time Detection Loop
 
-async function detectObjects() {
-    console.log("Attempting to detect...");
-    if (!model || video.readyState < 3) return;
+async function detectionLoop() {
+    if (model && video.readyState >= 3) {
+        // Get the video's intrinsic size vs its display size
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
+        const displayWidth = video.clientWidth;
+        const displayHeight = video.clientHeight;
 
-    const predictions = await model.detect(video);
+        // Ensure we don't divide by zero before the video is fully initialized
+        if (videoWidth > 0 && videoHeight > 0) {
+            // Calculate the scale factor
+            const scaleX = displayWidth / videoWidth;
+            const scaleY = displayHeight / videoHeight;
 
-    // Screen center coordinates
-    const screenCenterX = window.innerWidth / 2;
-    const screenCenterY = window.innerHeight / 2;
+            // Get predictions
+            const predictions = await model.detect(video);
 
-    currentTargetObject = null; // Reset target
+            // Match canvas size to video element size
+            canvas.width = displayWidth;
+            canvas.height = displayHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    for (let prediction of predictions) {
-        const [x, y, width, height] = prediction.bbox;
-        // Check if the screen center is inside this object's bounding box
-        if (screenCenterX > x && screenCenterX < x + width &&
-            screenCenterY > y && screenCenterY < y + height) {
-            
-            currentTargetObject = prediction.class;
-            console.log("Current Target:", currentTargetObject);
-            break; // Found our target, stop checking
+            const screenCenterX = canvas.width / 2;
+            const screenCenterY = canvas.height / 2;
+            let objectFound = false;
+
+            for (let prediction of predictions) {
+                // Scale the bounding box coordinates to the display size
+                const scaledX = prediction.bbox[0] * scaleX;
+                const scaledY = prediction.bbox[1] * scaleY;
+                const scaledWidth = prediction.bbox[2] * scaleX;
+                const scaledHeight = prediction.bbox[3] * scaleY;
+
+                // Draw the scaled bounding box
+                ctx.strokeStyle = '#00FFFF'; // Bright cyan color
+                ctx.lineWidth = 4; // Make it thicker for mobile
+                ctx.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
+
+                // Draw the label
+                ctx.fillStyle = '#00FFFF';
+                ctx.font = '24px Arial'; // Make it bigger for mobile
+                ctx.fillText(
+                    `${prediction.class} (${Math.round(prediction.score * 100)}%)`,
+                    scaledX,
+                    scaledY > 30 ? scaledY - 10 : 30 // Adjust label position
+                );
+
+                // Check if this object is under the crosshair
+                if (!objectFound && screenCenterX > scaledX && screenCenterX < scaledX + scaledWidth &&
+                    screenCenterY > scaledY && screenCenterY < scaledY + scaledHeight) {
+                    
+                    currentTargetObject = prediction.class;
+                    objectFound = true;
+                }
+            }
+            if (!objectFound) {
+                currentTargetObject = null;
+            }
+            // Update the status text on the UI
+            const statusDiv = document.getElementById('status-text');
+            if (currentTargetObject) {
+                statusDiv.innerText = `Target: ${currentTargetObject}`;
+                statusDiv.style.color = 'lime'; // Green
+            } else {
+                statusDiv.innerText = `Status: Aim at a recognized object`;
+                statusDiv.style.color = 'yellow'; // Yellow
+            }
         }
     }
+    requestAnimationFrame(detectionLoop);
 }
 
 // Recording Audio and Calling Backend
-
-// In: static/main.js - REPLACE your existing listeners with these two
 
 recordButton.addEventListener('mousedown', () => {
     // Log the state AT THE MOMENT OF THE CLICK

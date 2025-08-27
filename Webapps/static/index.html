@@ -29,6 +29,10 @@
         <video id="camera-feed" autoplay playsinline></video>
         <canvas id="overlay-canvas"></canvas> <!-- <-- ADD THIS CANVAS -->
     </div>
+    
+    <div id="status-text" style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px; font-family: monospace; z-index: 100;">
+        Status: Initializing...
+    </div>
     <div id="crosshair"></div>
     <button id="record-button"></button>
     <video id="result-video" controls></video>
@@ -36,6 +40,6 @@
     <!-- Load TensorFlow.js and the object detection model -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-    <script src="main.js"></script> <!-- My JavaScript code -->
+    <script src="/static/main.js"></script> <!-- My JavaScript code -->
 </body>
 </html>
