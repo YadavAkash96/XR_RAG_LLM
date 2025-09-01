@@ -34,7 +34,7 @@ This project uses a microservices architecture orchestrated by a central gateway
 
 ![System Diagram](Documentation/GymLens.drawio.svg)
 
----
+
 
 ## Technology Stack
 
