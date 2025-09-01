@@ -9,6 +9,8 @@ A proof-of-concept web application that turns a mobile phone's camera into an in
 
 ## Core Idea
 
+![System Diagram](Documentation/GymLens.drawio.svg)
+
 Imagine pointing your phone at a complex piece of gym equipment and asking, *"How do I use this for my back?"*
 
 This application solves that by:
