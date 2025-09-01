@@ -9,8 +9,6 @@ A proof-of-concept web application that turns a mobile phone's camera into an in
 
 ## Core Idea
 
-![System Diagram](Documentation/GymLens.drawio.svg)
-
 Imagine pointing your phone at a complex piece of gym equipment and asking, *"How do I use this for my back?"*
 
 This application solves that by:
@@ -34,29 +32,7 @@ This application solves that by:
 
 This project uses a microservices architecture orchestrated by a central gateway application. This design ensures that each component is independent, scalable, and easy to maintain.
 
-```
-+---------------------------+      (WSS - WebSocket Secure)      +-----------------------------+
-|                           | <--------------------------------> |                             |
-|    Client (Mobile Browser)|                                    |   Main App (Gateway)        |
-| - index.html / main.js    |      1. Sends Audio + Object Name  | - app.py (FastAPI)          |
-| - TensorFlow.js Detection |      5. Receives Video URL         | - Serves Frontend           |
-|                           |                                    | - Orchestrates Services     |
-+---------------------------+                                    +-------------+---------------+
-                                                                               |
-                                                 (HTTP) | 2. Sends Audio       | (HTTP) | 3. Sends Text + Object
-                                                        v                      v
-                                       +-------------------------+    +--------------------------+
-                                       |                         |    |                          |
-                                       |   STT Service           |    |   RAG-LLM Service        |
-                                       | - whisper_server.py     |    | - app.py                 |
-                                       | - Whisper Model         |    | - Vector DB Search       |
-                                       | - Transcribes Audio     |    | - Returns Video URL      |
-                                       |                         |    |                          |
-                                       +-------------------------+    +--------------------------+
-                                                        ^                      ^
-                                                        | 4. Returns Text      |
-                                                        +----------------------+
-```
+![System Diagram](Documentation/GymLens.drawio.svg)
 
 ---
 
