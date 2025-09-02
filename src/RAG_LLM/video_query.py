@@ -109,8 +109,6 @@ def analyze_query_with_ollama(query: str, client: OpenAI, model_name="phi3"):
             "exercise_name": to_list(extracted_data.get("exercise_name"))
         }
         return validated_data
-        # --- END OF FIX ---
-
     except Exception as e:
         print(f"Error during Ollama query analysis: {e}")
         return {"machine_name": [], "body_parts": [], "exercise_name": []}
@@ -145,7 +143,7 @@ def create_embeddable_url(youtube_url: str) -> str:
     if "youtube.com/shorts/" in youtube_url:
         video_id = youtube_url.split("/shorts/")[1].split("?")[0] # Handle potential params
         return f"https://www.youtube.com/embed/{video_id}"
-    # Will add other platforms here 
+    # Will add other platforms here e.g. insta, tiktok etc.
     return youtube_url
 
 # --- THE MAIN API ENDPOINT ---
@@ -200,7 +198,7 @@ def query_videos(request: QueryRequest):
         video_url = result.payload.get("video_url")
         if video_url and video_url not in request.seen_video_urls:
             print(f"[RESULT] Found top unseen result: '{result.payload.get('video_title')}' with score {result.score:.4f}")
-            # Prepare and return the successful response
+            
             return VideoResponse(
                 video_url=video_url,
                 embed_url=create_embeddable_url(video_url),
@@ -213,6 +211,3 @@ def query_videos(request: QueryRequest):
     print("[RESPONSE] No new relevant videos found for this query.")
     raise HTTPException(status_code=404, detail="No new relevant videos were found. You may have seen them all.")
 
-# --- To run the server ---
-# In your terminal, navigate to this directory and run:
-# uvicorn query_api:app --reload

@@ -1,82 +1,94 @@
-# In: main_app/app.py
 import yaml
 import requests
-import asyncio
+import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-# --- App and Configuration Setup ---
+
 app = FastAPI()
 
 try:
     with open('../config.yaml', 'r') as f:
         config = yaml.safe_load(f)
-    STT_SERVICE_URL = config['services']['STT_ENDPOINT'] # e.g. "http://localhost:5002/transcribe"
+    STT_SERVICE_URL = config['services']['STT_ENDPOINT']     # e.g. "http://localhost:5002/transcribe"
     RAG_LLM_SERVICE_URL = config['services']['LLM_ENDPOINT'] # e.g. "http://localhost:5001/query"
-except FileNotFoundError:
-    print("ERROR: config.yaml not found.")
+except (FileNotFoundError, KeyError):
+    print("ERROR: config.yaml not found or missing required service endpoints.")
     exit()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
-# --- WebSocket Endpoint ---
-# This is the single endpoint your JavaScript will connect to.
 @app.websocket("/ws/query")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            # 1. Wait to receive the audio data from the browser
-            # The browser will send the target_object first as text, then the audio as bytes
-            target_object = await websocket.receive_text()
-            audio_bytes = await websocket.receive_bytes()
-            print(f"Received query via WebSocket for object: {target_object}")
+            # The WebSocket now handles two types of incoming messages.
+            # It will always receive a JSON text message first.
+            
+            message_str = await websocket.receive_text()
+            message_data = json.loads(message_str)
+            
+            target_object = 'leg press machine'        #message_data.get("target_object")
+            seen_urls = message_data.get("seen_urls", [])
+            
+            user_query_text = "" # Initialize to empty
 
-            # --- This is where the orchestration happens ---
-            try:
-                # Send a status update back to the UI
-                await websocket.send_json({"status": "Transcribing audio..."})
-
-                # Step 2: Call the STT service (using simple HTTP)
-                stt_files = {'audio_file': ('query.wav', audio_bytes, 'audio/wav')}
-                stt_response = requests.post(STT_SERVICE_URL, files=stt_files)
-                stt_response.raise_for_status()
-                user_query_text = stt_response.json()['transcription']
-                print(f"STT Service returned: '{user_query_text}'")
+            # --- DYNAMIC LOGIC: Check if we need to do STT ---
+            if "transcribed_text" in message_data:
+                # This is a "Next Video" request. We already have the text.
+                user_query_text = message_data["transcribed_text"]
+                print(f"Received 'Next Video' request with cached text: '{user_query_text}'")
+            else:
+                # This is a new audio query. We need to do STT.
+                audio_bytes = await websocket.receive_bytes()
+                print(f"Received new audio query for object: '{target_object}'")
                 
-                 # --- TEMPORARY CHANGE FOR TESTING ---
-                # We will send the transcribed text back directly as the final result.
-                # The LLM call is temporarily disabled.
+                try:
+                    await websocket.send_json({"status": "Transcribing audio..."})
+                    stt_files = {'audio_file': ('query.wav', audio_bytes, 'audio/wav')}
+                    stt_response = requests.post(STT_SERVICE_URL, files=stt_files)
+                    stt_response.raise_for_status()
+                    
+                    stt_result = stt_response.json()
+                    user_query_text = stt_result['transcription']
+                    print(f"STT Service returned: '{user_query_text}'")
 
-                # Create a simple "result" dictionary that looks like the final one
-                mock_video_result = {"url": user_query_text} 
+                    # IMPORTANT: Send the transcribed text back to the front-end so it can cache it
+                    await websocket.send_json({"status": "Transcribed", "transcribed_text": user_query_text})
 
-                # Send the transcription back to the UI
-                await websocket.send_json({"status": "Done", "result": mock_video_result})
+                except requests.exceptions.RequestException as e:
+                    await websocket.send_json({"error": f"STT service is unavailable: {e}"})
+                    continue # Wait for the next message
+            
+            # --- RAG Call (This part is now common to both paths) ---
+            if user_query_text:
+                try:
+                    await websocket.send_json({"status": f"Searching for: '{user_query_text}'"})
+
+                    combined_query = f"{user_query_text} {target_object}"
+                    rag_payload = {
+                        'query': combined_query,
+                        'seen_video_urls': seen_urls
+                    }
+
+                    rag_response = requests.post(RAG_LLM_SERVICE_URL, json=rag_payload)
+                    rag_response.raise_for_status()
+                    video_result = rag_response.json()
+
+                    await websocket.send_json({"status": "Done", "result": video_result})
+                    print(f"Sent video result to client: {video_result.get('video_title')}")
                 
-                # Send another status update
-                # await websocket.send_json({"status": f"Searching for: '{user_query_text}'"})
-
-                # # Step 3: Call the RAG_LLM service (using simple HTTP)
-                # llm_payload = {'query': user_query_text, 'context_object': target_object}
-                # llm_response = requests.post(RAG_LLM_SERVICE_URL, json=llm_payload)
-                # llm_response.raise_for_status()
-                # video_result = llm_response.json() # The final { "url": "..." }
-
-                # # Step 4: Send the FINAL result back to the UI over the WebSocket
-                # await websocket.send_json({"status": "Done", "result": video_result})
-
-            except requests.exceptions.RequestException as e:
-                await websocket.send_json({"error": "A backend service is unavailable."})
-            except Exception as e:
-                await websocket.send_json({"error": "An error occurred during processing."})
+                except requests.exceptions.RequestException as e:
+                    await websocket.send_json({"error": f"RAG service is unavailable: {e}"})
+                except Exception as e:
+                    await websocket.send_json({"error": f"An error occurred during RAG processing: {e}"})
 
     except WebSocketDisconnect:
         print("Client disconnected")
 
-# --- Frontend Serving ---
+# --- Frontend Call ---
 @app.get("/")
 async def serve_index():
     return FileResponse('static/index.html')

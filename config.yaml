@@ -50,4 +50,4 @@ device:
 # In: config.yaml
 services:
   STT_ENDPOINT: "http://localhost:5002/transcribe"      # Update with the STT endpoint from whisper_server.py
-  LLM_ENDPOINT: "http://192.168.0.232:8001/ask_xr"      # Update with the RAG + LLM endpoint from RAG_LLM/app.py
+  LLM_ENDPOINT: "http://localhost:8001/query"      # Update with the RAG + LLM endpoint from RAG_LLM/app.py
