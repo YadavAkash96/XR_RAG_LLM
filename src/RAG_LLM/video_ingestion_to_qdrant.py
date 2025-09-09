@@ -32,12 +32,10 @@ def extract_entities_with_ollama(video_data, client, model_name="phi3"):
     """
     
     try:
-        # The API call is very similar to the OpenAI one
         response = client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
-            # Ollama supports JSON mode with newer models like Phi-3
             response_format={"type": "json_object"}
         )
         
@@ -129,7 +127,7 @@ if __name__ == "__main__":
     INPUT_JSONL_FILE = "fitness_videos_data.jsonl"
     QDRANT_COLLECTION_NAME = "fitness_videos_rag"
     EMBED_MODEL_NAME = cfg["index"]["text_model"]
-    VECTOR_DIMENSION = 384 
+    VECTOR_DIMENSION = 768  
 
     qdrant_url = os.getenv("QDRANT_URL")
     qdrant_api_key = os.getenv("QDRANT_API_KEY")
@@ -147,15 +145,15 @@ if __name__ == "__main__":
         genai.configure(api_key=google_api_key)
         generation_config = genai.GenerationConfig(response_mime_type="application/json")
         entity_extraction_client = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
+            model_name='gemini-1.5-flash',      #SLM:Small Language Model
             generation_config=generation_config
         )
         print("Initialized Gemini client.")
     elif EXTRACTION_MODE == "ollama":
-        # Point the OpenAI client to your local Ollama server
+
         entity_extraction_client = OpenAI(
             base_url='http://localhost:11434/v1',
-            api_key='ollama', # required but doesn't matter
+            api_key='ollama',
         )
         print("Initialized Ollama client. Make sure the Ollama server is running.")
     else:
@@ -220,7 +218,6 @@ if __name__ == "__main__":
                     "text": chunk,
                     "video_url": video_data.get('url'),
                     "video_title": video_data.get('title'),
-                    "expert_name": video_data.get('channel_title'),
                     "machine_name": entities["machine_name"],
                     "body_parts": entities["body_parts"],
                     "exercise_name": entities["exercise_name"]

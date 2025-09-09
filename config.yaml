@@ -1,6 +1,6 @@
 index:
   strategy: "caption_to_text"   # or "shared_encoder"
-  text_model: "sentence-transformers/all-MiniLM-L6-v2"
+  text_model: "BAAI/bge-base-en-v1.5"      #"sentence-transformers/all-MiniLM-L6-v2"
   caption_model: "nlpconnect/vit-gpt2-image-captioning"
   use_ocr: true
   languages: ["en"]

@@ -3,6 +3,10 @@
 .env.local
 .env.*
 
-
 ffmpeg
 ngrok-v3-stable-windows-amd64
+
+/src/VisionPart/*.jsonl
+/src/*.jsonl
+
+
