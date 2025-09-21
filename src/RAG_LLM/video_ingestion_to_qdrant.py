@@ -209,7 +209,7 @@ if __name__ == "__main__":
             else: 
                 entities = extract_entities_with_ollama(video_data, entity_extraction_client)
             
-            print(entities)
+            # print(entities)
             
             transcript_chunks = chunk_text(video_data['transcript'])
 

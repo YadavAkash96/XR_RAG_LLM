@@ -10,11 +10,11 @@ from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-# --- CONFIGURATION ---
-QDRANT_COLLECTION_NAME = "fitness_videos_rag"
-EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 
-# --- API MODELS (Request and Response Contracts) ---
+QDRANT_COLLECTION_NAME = "fitness_videos_rag"
+EMBED_MODEL_NAME = "BAAI/bge-base-en-v1.5"     #"BAAI/bge-small-en-v1.5"
+
+
 class QueryRequest(BaseModel):
     """Defines the structure of an incoming query from the front-end."""
     query: str = Field(..., description="The combined text query from the user's voice and the detected object.")
@@ -27,8 +27,10 @@ class VideoResponse(BaseModel):
     video_title: str
     expert_name: str
     text_chunk: str
+    platform: str
+    thumbnail_url: Optional[str] = None
 
-# --- INITIALIZE SERVICES (Loaded once on startup for performance) ---
+
 print("Loading environment variables from .env file...")
 load_dotenv()
 QUERY_MODE = "ollama"
@@ -38,7 +40,7 @@ google_api_key = os.getenv("GOOGLE_API_KEY")
 
 print(f"--- Initializing in <{QUERY_MODE.upper()}> mode ---")
 
-# --- Initialize Clients Based on the Switch ---
+
 entity_extraction_client = None
 if QUERY_MODE == "gemini":
     google_api_key = os.getenv("GOOGLE_API_KEY")
@@ -64,9 +66,8 @@ if not all([qdrant_url, qdrant_api_key, google_api_key]):
     raise RuntimeError("CRITICAL: Required environment variables (QDRANT_URL, QDRANT_API_KEY, GOOGLE_API_KEY) are not set!")
 
 print("Initializing clients (Qdrant, SentenceTransformer, Gemini)...")
-# Initialize Qdrant client
+
 qdrant_client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
-# Initialize the embedding model (runs locally)
 embedding_model = SentenceTransformer(EMBED_MODEL_NAME, device="cuda" if "cuda" in "cuda" else "cpu")
 
 genai.configure(api_key=google_api_key)
@@ -74,13 +75,12 @@ generation_config = genai.GenerationConfig(response_mime_type="application/json"
 gemini_model = genai.GenerativeModel(model_name='gemini-1.5-flash', generation_config=generation_config)
 print("All clients initialized successfully. API is ready.")
 
-# Initialize FastAPI application
 app = FastAPI(
     title="Fitness RAG API",
     description="API for retrieving instructional fitness videos based on real-world context."
 )
 
-# --- HELPER FUNCTIONS ---
+
 def analyze_query_with_ollama(query: str, client: OpenAI, model_name="phi3"):
     """
     Uses a local Ollama model to extract entities, ensuring all outputs are lists.
@@ -146,6 +146,16 @@ def create_embeddable_url(youtube_url: str) -> str:
     # Will add other platforms here e.g. insta, tiktok etc.
     return youtube_url
 
+def deduce_platform_from_url(url: str) -> str:
+    """Intelligently determines the platform from a video URL."""
+    if "youtube.com" in url or "youtu.be" in url:
+        return "YouTube"
+    if "tiktok.com" in url:
+        return "TikTok"
+    if "instagram.com" in url:
+        return "Instagram"
+    return "Unknown"
+
 # --- THE MAIN API ENDPOINT ---
 @app.post("/query", response_model=VideoResponse)
 def query_videos(request: QueryRequest):
@@ -197,6 +207,7 @@ def query_videos(request: QueryRequest):
     for result in search_results:
         video_url = result.payload.get("video_url")
         if video_url and video_url not in request.seen_video_urls:
+            platform = deduce_platform_from_url(video_url)
             print(f"[RESULT] Found top unseen result: '{result.payload.get('video_title')}' with score {result.score:.4f}")
             
             return VideoResponse(
@@ -204,6 +215,7 @@ def query_videos(request: QueryRequest):
                 embed_url=create_embeddable_url(video_url),
                 video_title=result.payload.get("video_title", "No Title"),
                 expert_name=result.payload.get("expert_name", "Unknown Expert"),
+                platform=platform,
                 text_chunk=result.payload.get("text", "")
             )
 

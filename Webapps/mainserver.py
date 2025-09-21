@@ -12,7 +12,7 @@ try:
     with open('../config.yaml', 'r') as f:
         config = yaml.safe_load(f)
     STT_SERVICE_URL = config['services']['STT_ENDPOINT']     # e.g. "http://localhost:5002/transcribe"
-    RAG_LLM_SERVICE_URL = config['services']['LLM_ENDPOINT'] # e.g. "http://localhost:5001/query"
+    RAG_LLM_SERVICE_URL = config['services']['LLM_ENDPOINT'] # e.g. "http://localhost:8001/query"
 except (FileNotFoundError, KeyError):
     print("ERROR: config.yaml not found or missing required service endpoints.")
     exit()
@@ -41,10 +41,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 user_query_text = message_data["transcribed_text"]
                 print(f"Received 'Next Video' request with cached text: '{user_query_text}'")
             else:
-                # This is a new audio query. We need to do STT.
-                audio_bytes = await websocket.receive_bytes()
+                audio_bytes = await websocket.receive_bytes()       # <-- Wait for the audio bytes
                 print(f"Received new audio query for object: '{target_object}'")
-                
+                if len(audio_bytes) < 1024:
+                    print(f"[WARN] Received empty or invalid audio data (size: {len(audio_bytes)} bytes). Skipping STT.")
+
+                    await websocket.send_json({"error": "No audio was detected in the recording. Please try again."})
+                    continue 
                 try:
                     await websocket.send_json({"status": "Transcribing audio..."})
                     stt_files = {'audio_file': ('query.wav', audio_bytes, 'audio/wav')}
@@ -55,6 +58,12 @@ async def websocket_endpoint(websocket: WebSocket):
                     user_query_text = stt_result['transcription']
                     print(f"STT Service returned: '{user_query_text}'")
 
+                    # If STT service returns an empty string, treat it as an error
+                    if not user_query_text.strip():
+                         print("[WARN] STT service returned an empty transcription. Skipping RAG.")
+                         await websocket.send_json({"error": "Could not understand the audio. Please speak clearly and try again."})
+                         continue
+                    
                     # IMPORTANT: Send the transcribed text back to the front-end so it can cache it
                     await websocket.send_json({"status": "Transcribed", "transcribed_text": user_query_text})
 
@@ -76,7 +85,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     rag_response = requests.post(RAG_LLM_SERVICE_URL, json=rag_payload)
                     rag_response.raise_for_status()
                     video_result = rag_response.json()
-
+                    print(video_result)
                     await websocket.send_json({"status": "Done", "result": video_result})
                     print(f"Sent video result to client: {video_result.get('video_title')}")
                 

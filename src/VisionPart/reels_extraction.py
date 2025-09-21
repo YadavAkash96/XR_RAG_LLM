@@ -51,6 +51,7 @@ def find_filtered_youtube_shorts(query, max_results=5, order="viewCount", lang="
                 'title': item['snippet']['title'],
                 'description': item['snippet']['description'],
                 'author': item['snippet']['channelTitle'],
+                "thumbnail_url": item['snippet']['thumbnails']['high']['url'],
                 "platform": "YouTube"
             }
             # print(video_info)
@@ -186,7 +187,7 @@ def get_video_transcript(video_url,whisper_model):
 if __name__ == "__main__":
     
     OUTPUT_FILENAME = "all_fitness_videos_data.jsonl"
-    PLATFORMS_TO_SEARCH = ["tiktok"] #"youtube", "tiktok",
+    PLATFORMS_TO_SEARCH = ["youtube"] #"youtube", "tiktok",
     MAX_RESULTS_PER_TERM = 6
     apify_client = ApifyClient(os.getenv("APIFY_API_TOKEN"))
     
@@ -195,12 +196,11 @@ if __name__ == "__main__":
     final_video_data = []
     search_queries = ["leg press","seated row","barbell squat", "lat pulldown", "dumbbell bench press",
     "dumbbell curls", "tricep pushdown", "plank exercise", "kettlebell swing"]
-
     final_video_data.extend(discover_tiktok_videos(apify_client, search_queries, MAX_RESULTS_PER_TERM))
     # for term in search_queries:
     #     print(f"\n--- Discovering videos for search term: '{term}' ---")
     #     if "youtube" in PLATFORMS_TO_SEARCH:
-            # final_video_data.extend(find_filtered_youtube_shorts(term, max_results=1))
+    #         final_video_data.extend(find_filtered_youtube_shorts(term, max_results=MAX_RESULTS_PER_TERM))
     #     if "tiktok" in PLATFORMS_TO_SEARCH:
     #         final_video_data.extend(discover_tiktok_videos(apify_client, term, MAX_RESULTS_PER_TERM))
     #     if "instagram" in PLATFORMS_TO_SEARCH:
